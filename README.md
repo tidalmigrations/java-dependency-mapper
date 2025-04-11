@@ -27,6 +27,20 @@ The input JSONL files are typically generated from Jarviz-lib static analysis of
 npm install
 ```
 
+### Global Installation
+
+You can install this tool globally to use it from anywhere on your system:
+
+```bash
+# From the project directory
+npm install -g .
+
+# Or directly from npm (if published)
+# npm install -g java-dependency-mapper
+```
+
+After global installation, you can run the tool using the `java-dependency-mapper` command.
+
 ## Usage
 
 ### Dependency Mapper
@@ -42,7 +56,11 @@ npm start -- path/to/your/dependencies.jsonl
 The package dependencies extractor tool generates a Markdown report of all base packages that a project depends on:
 
 ```bash
+# When installed locally
 npx ts-node package-dependencies.ts <jsonl-file-path> [--output <output-file-path>]
+
+# When installed globally
+java-dependency-mapper <jsonl-file-path> [--output <output-file-path>]
 ```
 
 Where:
@@ -51,14 +69,17 @@ Where:
 
 Example usage:
 ```bash
-# Basic usage with default output file
+# Basic usage with default output file (local)
 npx ts-node package-dependencies.ts sample-dependencies.jsonl
 
+# Basic usage with default output file (global)
+java-dependency-mapper sample-dependencies.jsonl
+
 # Specify custom output file
-npx ts-node package-dependencies.ts sample-dependencies.jsonl --output reports/packages.md
+java-dependency-mapper sample-dependencies.jsonl --output reports/packages.md
 
 # Using shorthand parameter
-npx ts-node package-dependencies.ts sample-dependencies.jsonl -o custom-output.md
+java-dependency-mapper sample-dependencies.jsonl -o custom-output.md
 ```
 
 ## Development

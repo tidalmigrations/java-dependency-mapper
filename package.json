@@ -2,7 +2,10 @@
   "name": "java-dependency-mapper",
   "version": "1.0.0",
   "description": "Tool for mapping Java dependencies from extracted EAR files",
-  "main": "dependency-mapper.ts",
+  "main": "dist/package-dependencies.js",
+  "bin": {
+    "java-dependency-mapper": "./dist/package-dependencies.js"
+  },
   "scripts": {
     "start": "ts-node dependency-mapper.ts",
     "build": "tsc",

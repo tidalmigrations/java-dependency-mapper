@@ -1,3 +1,5 @@
+#!/usr/bin/env node
+
 import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
@@ -281,7 +283,7 @@ class PackageDependencyExtractor {
 
 async function main() {
     // Define usage information
-    const usage = `Usage: ts-node package-dependencies.ts <jsonl-file-path> [options]
+    const usage = `Usage: java-dependency-mapper <jsonl-file-path> [options]
 
 Options:
   --output, -o <file>  Specify output file path (default: package-dependencies.md)
