@@ -41,14 +41,14 @@ jobs:
         if: success()
 
       - name: Upload test coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: coverage-report
           path: coverage/
         if: success()
 
       - name: Upload sample analysis
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sample-analysis
           path: sample-analysis.md
