@@ -37,7 +37,7 @@ jobs:
         run: npm run build
 
       - name: Run sample analysis
-        run: node dist/package-dependencies.js samples/sample-dependencies.jsonl -o sample-analysis.md
+        run: node dist/package-dependencies.js sample-dependencies.jsonl -o sample-analysis.md
         if: success()
 
       - name: Upload test coverage
