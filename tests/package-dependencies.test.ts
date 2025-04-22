@@ -9,8 +9,8 @@ class PackageDependencyExtractor {
   dependencyMap: Map<string, Set<string>> = new Map();
   artifactMap: Map<string, Set<string>> = new Map();
   basePackageDependencyMap: Map<string, Set<string>> = new Map();
-  // Add property to track library counts
-  libraryCounts: { [key: string]: number } = {};
+  // Update library counts property to use Set for uniqueness
+  libraryCounts: { [key: string]: Set<string> } = {}; // Changed from number to Set<string>
   librariesToCount: string[] = ['struts', 'commons', 'log4j', 'cryptix']; // Default libraries
 
   constructor(librariesToCount?: string) {
@@ -20,7 +20,7 @@ class PackageDependencyExtractor {
     
     // Initialize counter for each library
     this.librariesToCount.forEach(lib => {
-      this.libraryCounts[lib] = 0;
+      this.libraryCounts[lib] = new Set<string>(); // Initialize with an empty Set
     });
   }
 
@@ -199,7 +199,7 @@ class PackageDependencyExtractor {
     
     // Display counts for each library dynamically
     Object.keys(this.libraryCounts).forEach(library => {
-      markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library]} |\n`;
+      markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library].size} |\n`; // Use .size in tests too
     });
     markdownContent += '\n';
     
@@ -297,21 +297,25 @@ class PackageDependencyExtractor {
     fs.writeFileSync(outputFile, markdownContent);
   }
 
-  // Method to count instances of specific libraries
+  // Method to count unique classes for specific libraries (Updated for tests)
   countSpecificLibraries(targetClass: string): void {
     const lcTargetClass = targetClass.toLowerCase();
     
-    // Check for each library in the target class
     this.librariesToCount.forEach(library => {
       if (lcTargetClass.includes(library)) {
-        this.libraryCounts[library]++;
+        // Add the original targetClass to the Set for uniqueness
+        this.libraryCounts[library].add(targetClass);
       }
     });
   }
 
-  // Getter for library counts (useful for testing)
-  getLibraryCounts() {
-    return this.libraryCounts;
+  // Method to get the library counts (Set sizes) for testing
+  getLibraryCounts(): { [key: string]: number } { // Return type changed to number for the size
+    const counts: { [key: string]: number } = {};
+    Object.keys(this.libraryCounts).forEach(lib => {
+      counts[lib] = this.libraryCounts[lib].size;
+    });
+    return counts;
   }
   
   // Getter for libraries being counted
@@ -670,105 +674,169 @@ describe('PackageDependencyExtractor', () => {
 });
 
 // Add tests for library counts
-describe('countSpecificLibraries', () => {
+describe('Specific Library Counting', () => {
+  let extractor: PackageDependencyExtractor;
+  
+  beforeEach(() => {
+    extractor = new PackageDependencyExtractor();
+  });
+
   test('should count struts in targetClass', () => {
-    const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.struts.actions.Action');
-    expect(extractor.libraryCounts['struts']).toBe(1);
+    expect(extractor.libraryCounts['struts'].size).toBe(1); // Check size
   });
 
   test('should count commons in targetClass', () => {
-    const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.commons.lang.StringUtils');
-    expect(extractor.libraryCounts['commons']).toBe(1);
+    expect(extractor.libraryCounts['commons'].size).toBe(1); // Check size
   });
 
   test('should count log4j in targetClass', () => {
-    const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.log4j.Logger');
-    expect(extractor.libraryCounts['log4j']).toBe(1);
+    expect(extractor.libraryCounts['log4j'].size).toBe(1); // Check size
   });
 
   test('should count cryptix in targetClass', () => {
-    const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('cryptix.provider.Cipher');
-    expect(extractor.libraryCounts['cryptix']).toBe(1);
+    expect(extractor.libraryCounts['cryptix'].size).toBe(1); // Check size
   });
 
-  test('should handle case insensitivity', () => {
-    const extractor = new PackageDependencyExtractor();
+  test('should handle case-insensitivity', () => {
     extractor.countSpecificLibraries('org.apache.STRUTS.Action');
     extractor.countSpecificLibraries('org.apache.COMMONS.FileUtils');
     extractor.countSpecificLibraries('org.apache.LOG4J.Logger');
     extractor.countSpecificLibraries('CRYPTIX.provider.Cipher');
     
-    expect(extractor.libraryCounts['struts']).toBe(1);
-    expect(extractor.libraryCounts['commons']).toBe(1);
-    expect(extractor.libraryCounts['log4j']).toBe(1);
-    expect(extractor.libraryCounts['cryptix']).toBe(1);
+    expect(extractor.libraryCounts['struts'].size).toBe(1);
+    expect(extractor.libraryCounts['commons'].size).toBe(1);
+    expect(extractor.libraryCounts['log4j'].size).toBe(1);
+    expect(extractor.libraryCounts['cryptix'].size).toBe(1);
   });
-
-  test('should handle multiple libraries in one targetClass', () => {
-    const extractor = new PackageDependencyExtractor();
+  
+  test('should handle multiple libraries in one class name', () => {
+    // Example: a class name containing both 'struts' and 'commons'
     extractor.countSpecificLibraries('org.apache.struts.commons.util');
     
-    expect(extractor.libraryCounts['struts']).toBe(1);
-    expect(extractor.libraryCounts['commons']).toBe(1);
-    expect(extractor.libraryCounts['log4j']).toBe(0);
-    expect(extractor.libraryCounts['cryptix']).toBe(0);
+    expect(extractor.libraryCounts['struts'].size).toBe(1);
+    expect(extractor.libraryCounts['commons'].size).toBe(1);
+    expect(extractor.libraryCounts['log4j'].size).toBe(0);
+    expect(extractor.libraryCounts['cryptix'].size).toBe(0);
   });
 
-  test('should increment counts correctly for multiple calls', () => {
-    const extractor = new PackageDependencyExtractor();
+  test('should count unique classes correctly', () => {
     extractor.countSpecificLibraries('org.apache.struts.Action');
     extractor.countSpecificLibraries('org.apache.struts.actions.DispatchAction');
     extractor.countSpecificLibraries('org.apache.commons.lang.StringUtils');
     extractor.countSpecificLibraries('org.apache.commons.io.FileUtils');
+    // Add the same classes again
+    extractor.countSpecificLibraries('org.apache.struts.Action'); // Duplicate
+    extractor.countSpecificLibraries('org.apache.commons.lang.StringUtils'); // Duplicate
     
-    expect(extractor.libraryCounts['struts']).toBe(2);
-    expect(extractor.libraryCounts['commons']).toBe(2);
+    expect(extractor.libraryCounts['struts'].size).toBe(2); // Should be 2 unique classes
+    expect(extractor.libraryCounts['commons'].size).toBe(2); // Should be 2 unique classes
   });
 
-  test('should support custom libraries list', () => {
+  test('should not count libraries not in the list', () => {
     const extractor = new PackageDependencyExtractor('spring,hibernate,tomcat');
     extractor.countSpecificLibraries('org.springframework.context.ApplicationContext');
     extractor.countSpecificLibraries('org.hibernate.Session');
     
-    expect(extractor.libraryCounts['spring']).toBe(1);
-    expect(extractor.libraryCounts['hibernate']).toBe(1);
-    expect(extractor.libraryCounts['tomcat']).toBe(0);
-    // The default libraries shouldn't be counted
+    expect(extractor.libraryCounts['spring'].size).toBe(1);
+    expect(extractor.libraryCounts['hibernate'].size).toBe(1);
+    expect(extractor.libraryCounts['tomcat'].size).toBe(0);
+    expect(extractor.libraryCounts['struts']).toBeUndefined();
+  });
+  
+  test('should use custom libraries when provided', () => {
+    const extractor = new PackageDependencyExtractor('spring,hibernate,tomcat');
+    extractor.countSpecificLibraries('org.springframework.context.ApplicationContext');
+    extractor.countSpecificLibraries('org.hibernate.Session');
+    
+    expect(extractor.libraryCounts['spring'].size).toBe(1);
+    expect(extractor.libraryCounts['hibernate'].size).toBe(1);
+    expect(extractor.libraryCounts['tomcat'].size).toBe(0);
     expect(extractor.libraryCounts['struts']).toBeUndefined();
   });
 });
 
-// Add test for processRecord with library counting
-test('should count libraries when processing a record', () => {
-  const extractor = new PackageDependencyExtractor();
-  const record = {
-    appSetName: 'TestApp',
-    applicationName: 'TestApp',
-    artifactFileName: 'test.jar',
-    artifactId: 'test',
-    artifactGroup: 'com.test',
-    artifactVersion: '1.0.0',
-    sourceClass: 'com.test.TestClass',
-    sourceMethod: 'testMethod',
-    targetClass: 'org.apache.struts.Action',
-    targetMethod: 'execute'
-  };
+describe('Integration with processRecord', () => {
+  let extractor: PackageDependencyExtractor;
   
-  extractor.processRecord(record);
-  expect(extractor.libraryCounts['struts']).toBe(1);
-  
-  // Process another record with a different library
-  const record2 = {
-    ...record,
-    targetClass: 'org.apache.commons.lang.StringUtils'
-  };
-  
-  extractor.processRecord(record2);
-  expect(extractor.libraryCounts['commons']).toBe(1);
+  beforeEach(() => {
+    extractor = new PackageDependencyExtractor();
+  });
+
+  test('should count struts library via processRecord', () => {
+    const record = {
+      appSetName: 'TestApp',
+      applicationName: 'TestApp',
+      artifactFileName: 'test.jar',
+      artifactId: 'test',
+      artifactGroup: 'com.test',
+      artifactVersion: '1.0.0',
+      sourceClass: 'com.test.TestClass',
+      sourceMethod: 'testMethod',
+      targetClass: 'org.apache.struts.Action',
+      targetMethod: 'execute'
+    };
+    
+    extractor.processRecord(record);
+    expect(extractor.libraryCounts['struts'].size).toBe(1);
+  });
+
+  test('should count commons library via processRecord', () => {
+    const record = {
+      appSetName: 'TestApp',
+      applicationName: 'TestApp',
+      artifactFileName: 'test.jar',
+      artifactId: 'test',
+      artifactGroup: 'com.test',
+      artifactVersion: '1.0.0',
+      sourceClass: 'com.test.TestClass',
+      sourceMethod: 'testMethod',
+      targetClass: 'org.apache.commons.lang.StringUtils',
+      targetMethod: 'execute'
+    };
+    
+    extractor.processRecord(record);
+    expect(extractor.libraryCounts['commons'].size).toBe(1);
+  });
+
+  test('should correctly count unique classes with multiple identical records', () => {
+    const recordStruts = {
+      appSetName: 'TestApp',
+      applicationName: 'TestApp',
+      artifactFileName: 'test.jar',
+      artifactId: 'test',
+      artifactGroup: 'com.test',
+      artifactVersion: '1.0.0',
+      sourceClass: 'com.test.TestClass',
+      sourceMethod: 'testMethod',
+      targetClass: 'org.apache.struts.Action',
+      targetMethod: 'execute'
+    };
+    
+    const recordCommons = {
+      appSetName: 'TestApp',
+      applicationName: 'TestApp',
+      artifactFileName: 'test.jar',
+      artifactId: 'test',
+      artifactGroup: 'com.test',
+      artifactVersion: '1.0.0',
+      sourceClass: 'com.test.TestClass',
+      sourceMethod: 'testMethod',
+      targetClass: 'org.apache.commons.lang.StringUtils',
+      targetMethod: 'execute'
+    };
+    
+    extractor.processRecord(recordStruts);
+    extractor.processRecord(recordCommons);
+    extractor.processRecord(recordStruts);
+    extractor.processRecord(recordCommons);
+
+    expect(extractor.libraryCounts['struts'].size).toBe(1);
+    expect(extractor.libraryCounts['commons'].size).toBe(1);
+  });
 });
 
 // Add tests for getLibrariesToCount

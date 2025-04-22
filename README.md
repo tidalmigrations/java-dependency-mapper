@@ -16,7 +16,7 @@ The input JSONL files are typically generated from Jarviz-lib static analysis of
 - Generate statistics about dependencies
 - View the most depended-upon classes
 - Extract and analyze package dependencies
-- Count instances of specific libraries (struts, commons, log4j, cryptix) in dependencies, customizable via `--libraries` option
+- Count unique classes belonging to specific libraries (struts, commons, log4j, cryptix) found in dependencies, customizable via `--libraries` option
 
 ## Installation
 
@@ -172,11 +172,11 @@ No cycles found.
 
 The package dependencies extractor generates a Markdown file with the following sections:
 
-1. **Specific Library Counts**: Tracks the number of dependencies where the targetClass contains specific libraries:
+1. **Specific Library Counts**: Tracks the number of unique classes depended upon where the `targetClass` contains specific library names:
    - By default: Struts, Commons, Log4j, Cryptix
    - Customizable via the `--libraries` option
    
-   This helps identify and quantify vulnerability exposure if any of these libraries have security issues.
+   This helps identify and quantify vulnerability exposure by showing how many distinct classes from potentially vulnerable libraries are used.
 
 2. **Base Packages**: A list of all base packages used by the project, grouped by:
    - External Dependencies (e.g., `java.lang`, `javax.servlet`)

@@ -26,7 +26,7 @@ interface PackageInfo {
 
 // Interface for tracking specific library counts
 interface LibraryCounts {
-    [key: string]: number;
+    [key: string]: Set<string>;
 }
 
 class PackageDependencyExtractor {
@@ -46,7 +46,7 @@ class PackageDependencyExtractor {
         
         // Initialize counter for each library
         this.librariesToCount.forEach(lib => {
-            this.libraryCounts[lib] = 0;
+            this.libraryCounts[lib] = new Set<string>();
         });
     }
 
@@ -108,14 +108,15 @@ class PackageDependencyExtractor {
         this.countSpecificLibraries(targetClass);
     }
     
-    // Method to count instances of specific libraries
+    // Method to count unique classes for specific libraries
     private countSpecificLibraries(targetClass: string): void {
         const lcTargetClass = targetClass.toLowerCase();
         
         // Check for each library in the target class
         this.librariesToCount.forEach(library => {
             if (lcTargetClass.includes(library)) {
-                this.libraryCounts[library]++;
+                // Add the original targetClass to the Set for uniqueness
+                this.libraryCounts[library].add(targetClass);
             }
         });
     }
@@ -223,13 +224,13 @@ class PackageDependencyExtractor {
         
         // Add section for specific library counts
         markdownContent += '## Specific Library Counts\n\n';
-        markdownContent += 'These counts represent the number of dependencies where the `targetClass` field in the JSONL data contains each specific library name. This helps quantify how many times your application code depends on classes from these libraries, which is useful for identifying vulnerability exposure.\n\n';
-        markdownContent += '| Library | Count |\n';
-        markdownContent += '|---------|-------|\n';
+        markdownContent += 'These counts represent the number of unique `targetClass` values in the JSONL data that contain each specific library name. This helps quantify how many distinct classes from these libraries your application code depends on, which is useful for identifying vulnerability exposure.\n\n';
+        markdownContent += '| Library | Count (Unique Classes) |\n';
+        markdownContent += '|---------|------------------------|\n';
         
         // Display counts for each library dynamically
         Object.keys(this.libraryCounts).forEach(library => {
-            markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library]} |\n`;
+            markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library].size} |\n`;
         });
         markdownContent += '\n';
         
@@ -329,16 +330,20 @@ class PackageDependencyExtractor {
         // Log the library counts to console
         console.log('\nSpecific Library Counts:');
         Object.keys(this.libraryCounts).forEach(library => {
-            console.log(`- ${library.charAt(0).toUpperCase() + library.slice(1)}: ${this.libraryCounts[library]}`);
+            console.log(`- ${library.charAt(0).toUpperCase() + library.slice(1)}: ${this.libraryCounts[library].size}`);
         });
     }
     
-    // Getter for library counts (useful for testing)
-    getLibraryCounts(): LibraryCounts {
-        return this.libraryCounts;
+    // Method to get the library counts (Set sizes)
+    getLibraryCounts(): { [key: string]: number } {
+        const counts: { [key: string]: number } = {};
+        Object.keys(this.libraryCounts).forEach(lib => {
+            counts[lib] = this.libraryCounts[lib].size;
+        });
+        return counts;
     }
 
-    // Getter for libraries being counted
+    // Method to get the list of libraries being counted
     getLibrariesToCount(): string[] {
         return [...this.librariesToCount];
     }
