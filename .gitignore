@@ -1,4 +1,5 @@
 samples/
+package-dependencies.md
 
 # Dependency directories
 node_modules/

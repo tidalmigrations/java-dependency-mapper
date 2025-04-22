@@ -24,11 +24,26 @@ interface PackageInfo {
     isExternal: boolean;
 }
 
+// Interface for tracking specific library counts
+interface LibraryCounts {
+    struts: number;
+    commons: number;
+    log4j: number;
+    cryptix: number;
+}
+
 class PackageDependencyExtractor {
     private packageMap: Map<string, PackageInfo> = new Map();
     private dependencyMap: Map<string, Set<string>> = new Map();
     private artifactMap: Map<string, Set<string>> = new Map();
     private basePackageDependencyMap: Map<string, Set<string>> = new Map();
+    // Add property to track library counts
+    private libraryCounts: LibraryCounts = {
+        struts: 0,
+        commons: 0,
+        log4j: 0,
+        cryptix: 0
+    };
 
     async parseJsonlFile(filePath: string): Promise<void> {
         const fileStream = fs.createReadStream(filePath);
@@ -83,6 +98,26 @@ class PackageDependencyExtractor {
         }
         this.artifactMap.get(record.artifactId)!.add(sourcePackage);
         this.artifactMap.get(record.artifactId)!.add(targetPackage);
+        
+        // Count specific libraries in targetClass
+        this.countSpecificLibraries(targetClass);
+    }
+    
+    // Method to count instances of specific libraries
+    private countSpecificLibraries(targetClass: string): void {
+        // Check for each specific library in the targetClass
+        if (targetClass.toLowerCase().includes('struts')) {
+            this.libraryCounts.struts++;
+        }
+        if (targetClass.toLowerCase().includes('commons')) {
+            this.libraryCounts.commons++;
+        }
+        if (targetClass.toLowerCase().includes('log4j')) {
+            this.libraryCounts.log4j++;
+        }
+        if (targetClass.toLowerCase().includes('cryptix')) {
+            this.libraryCounts.cryptix++;
+        }
     }
 
     private getPackageName(className: string): string {
@@ -186,6 +221,16 @@ class PackageDependencyExtractor {
         let markdownContent = '# Project Package Dependencies\n\n';
         markdownContent += 'This document lists all base packages that the project depends on.\n\n';
         
+        // Add section for specific library counts
+        markdownContent += '## Specific Library Counts\n\n';
+        markdownContent += 'These counts represent the number of dependencies where the `targetClass` field in the JSONL data contains each specific library name. This helps quantify how many times your application code depends on classes from these libraries, which is useful for identifying vulnerability exposure.\n\n';
+        markdownContent += '| Library | Count |\n';
+        markdownContent += '|---------|-------|\n';
+        markdownContent += `| Struts | ${this.libraryCounts.struts} |\n`;
+        markdownContent += `| Commons | ${this.libraryCounts.commons} |\n`;
+        markdownContent += `| Log4j | ${this.libraryCounts.log4j} |\n`;
+        markdownContent += `| Cryptix | ${this.libraryCounts.cryptix} |\n\n`;
+        
         // List all base packages
         markdownContent += '## Base Packages\n\n';
         
@@ -278,6 +323,18 @@ class PackageDependencyExtractor {
         
         fs.writeFileSync(outputFile, markdownContent);
         console.log(`Markdown output written to ${outputFile}`);
+        
+        // Log the library counts to console
+        console.log('\nSpecific Library Counts:');
+        console.log(`- Struts: ${this.libraryCounts.struts}`);
+        console.log(`- Commons: ${this.libraryCounts.commons}`);
+        console.log(`- Log4j: ${this.libraryCounts.log4j}`);
+        console.log(`- Cryptix: ${this.libraryCounts.cryptix}`);
+    }
+    
+    // Getter for library counts (useful for testing)
+    getLibraryCounts(): LibraryCounts {
+        return this.libraryCounts;
     }
 }
 
