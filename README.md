@@ -16,7 +16,7 @@ The input JSONL files are typically generated from Jarviz-lib static analysis of
 - Generate statistics about dependencies
 - View the most depended-upon classes
 - Extract and analyze package dependencies
-- Count instances of specific libraries (struts, commons, log4j, cryptix) in dependencies
+- Count instances of specific libraries (struts, commons, log4j, cryptix) in dependencies, customizable via `--libraries` option
 
 ## Installation
 
@@ -58,15 +58,16 @@ The package dependencies extractor tool generates a Markdown report of all base 
 
 ```bash
 # When installed locally
-npx ts-node package-dependencies.ts <jsonl-file-path> [--output <output-file-path>]
+npx ts-node package-dependencies.ts <jsonl-file-path> [--output <output-file-path>] [--libraries <libraries>]
 
 # When installed globally
-java-dependency-mapper <jsonl-file-path> [--output <output-file-path>]
+java-dependency-mapper <jsonl-file-path> [--output <output-file-path>] [--libraries <libraries>]
 ```
 
 Where:
 - `<jsonl-file-path>` is the path to the JSONL file containing dependency data (required)
 - `--output` or `-o` followed by path where the Markdown output will be written (optional, defaults to `package-dependencies.md`)
+- `--libraries` or `-l` followed by a comma-separated list of libraries to count in dependencies (optional, defaults to `struts,commons,log4j,cryptix`)
 
 Example usage:
 ```bash
@@ -81,6 +82,12 @@ java-dependency-mapper sample-dependencies.jsonl --output reports/packages.md
 
 # Using shorthand parameter
 java-dependency-mapper sample-dependencies.jsonl -o custom-output.md
+
+# Specify custom libraries to count
+java-dependency-mapper sample-dependencies.jsonl --libraries "spring,hibernate,jetty"
+
+# Using shorthand parameter for libraries
+java-dependency-mapper sample-dependencies.jsonl -l "log4j,slf4j,logback"
 ```
 
 ## Development
@@ -166,10 +173,9 @@ No cycles found.
 The package dependencies extractor generates a Markdown file with the following sections:
 
 1. **Specific Library Counts**: Tracks the number of dependencies where the targetClass contains specific libraries:
-   - Struts
-   - Commons
-   - Log4j
-   - Cryptix
+   - By default: Struts, Commons, Log4j, Cryptix
+   - Customizable via the `--libraries` option
+   
    This helps identify and quantify vulnerability exposure if any of these libraries have security issues.
 
 2. **Base Packages**: A list of all base packages used by the project, grouped by:

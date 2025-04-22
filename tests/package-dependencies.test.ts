@@ -10,12 +10,19 @@ class PackageDependencyExtractor {
   artifactMap: Map<string, Set<string>> = new Map();
   basePackageDependencyMap: Map<string, Set<string>> = new Map();
   // Add property to track library counts
-  libraryCounts = {
-    struts: 0,
-    commons: 0,
-    log4j: 0,
-    cryptix: 0
-  };
+  libraryCounts: { [key: string]: number } = {};
+  librariesToCount: string[] = ['struts', 'commons', 'log4j', 'cryptix']; // Default libraries
+
+  constructor(librariesToCount?: string) {
+    if (librariesToCount) {
+      this.librariesToCount = librariesToCount.split(',').map(lib => lib.trim().toLowerCase());
+    }
+    
+    // Initialize counter for each library
+    this.librariesToCount.forEach(lib => {
+      this.libraryCounts[lib] = 0;
+    });
+  }
 
   async parseJsonlFile(filePath: string): Promise<void> {
     // In our tests, we don't actually read from a file
@@ -189,10 +196,12 @@ class PackageDependencyExtractor {
     markdownContent += 'These counts represent the number of dependencies where the `targetClass` field in the JSONL data contains each specific library name. This helps quantify how many times your application code depends on classes from these libraries, which is useful for identifying vulnerability exposure.\n\n';
     markdownContent += '| Library | Count |\n';
     markdownContent += '|---------|-------|\n';
-    markdownContent += `| Struts | ${this.libraryCounts.struts} |\n`;
-    markdownContent += `| Commons | ${this.libraryCounts.commons} |\n`;
-    markdownContent += `| Log4j | ${this.libraryCounts.log4j} |\n`;
-    markdownContent += `| Cryptix | ${this.libraryCounts.cryptix} |\n\n`;
+    
+    // Display counts for each library dynamically
+    Object.keys(this.libraryCounts).forEach(library => {
+      markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library]} |\n`;
+    });
+    markdownContent += '\n';
     
     // List all base packages
     markdownContent += '## Base Packages\n\n';
@@ -290,24 +299,24 @@ class PackageDependencyExtractor {
 
   // Method to count instances of specific libraries
   countSpecificLibraries(targetClass: string): void {
-    // Check for each specific library in the targetClass
-    if (targetClass.toLowerCase().includes('struts')) {
-      this.libraryCounts.struts++;
-    }
-    if (targetClass.toLowerCase().includes('commons')) {
-      this.libraryCounts.commons++;
-    }
-    if (targetClass.toLowerCase().includes('log4j')) {
-      this.libraryCounts.log4j++;
-    }
-    if (targetClass.toLowerCase().includes('cryptix')) {
-      this.libraryCounts.cryptix++;
-    }
+    const lcTargetClass = targetClass.toLowerCase();
+    
+    // Check for each library in the target class
+    this.librariesToCount.forEach(library => {
+      if (lcTargetClass.includes(library)) {
+        this.libraryCounts[library]++;
+      }
+    });
   }
 
   // Getter for library counts (useful for testing)
   getLibraryCounts() {
     return this.libraryCounts;
+  }
+  
+  // Getter for libraries being counted
+  getLibrariesToCount() {
+    return [...this.librariesToCount];
   }
 }
 
@@ -665,25 +674,25 @@ describe('countSpecificLibraries', () => {
   test('should count struts in targetClass', () => {
     const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.struts.actions.Action');
-    expect(extractor.libraryCounts.struts).toBe(1);
+    expect(extractor.libraryCounts['struts']).toBe(1);
   });
 
   test('should count commons in targetClass', () => {
     const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.commons.lang.StringUtils');
-    expect(extractor.libraryCounts.commons).toBe(1);
+    expect(extractor.libraryCounts['commons']).toBe(1);
   });
 
   test('should count log4j in targetClass', () => {
     const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.log4j.Logger');
-    expect(extractor.libraryCounts.log4j).toBe(1);
+    expect(extractor.libraryCounts['log4j']).toBe(1);
   });
 
   test('should count cryptix in targetClass', () => {
     const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('cryptix.provider.Cipher');
-    expect(extractor.libraryCounts.cryptix).toBe(1);
+    expect(extractor.libraryCounts['cryptix']).toBe(1);
   });
 
   test('should handle case insensitivity', () => {
@@ -693,20 +702,20 @@ describe('countSpecificLibraries', () => {
     extractor.countSpecificLibraries('org.apache.LOG4J.Logger');
     extractor.countSpecificLibraries('CRYPTIX.provider.Cipher');
     
-    expect(extractor.libraryCounts.struts).toBe(1);
-    expect(extractor.libraryCounts.commons).toBe(1);
-    expect(extractor.libraryCounts.log4j).toBe(1);
-    expect(extractor.libraryCounts.cryptix).toBe(1);
+    expect(extractor.libraryCounts['struts']).toBe(1);
+    expect(extractor.libraryCounts['commons']).toBe(1);
+    expect(extractor.libraryCounts['log4j']).toBe(1);
+    expect(extractor.libraryCounts['cryptix']).toBe(1);
   });
 
   test('should handle multiple libraries in one targetClass', () => {
     const extractor = new PackageDependencyExtractor();
     extractor.countSpecificLibraries('org.apache.struts.commons.util');
     
-    expect(extractor.libraryCounts.struts).toBe(1);
-    expect(extractor.libraryCounts.commons).toBe(1);
-    expect(extractor.libraryCounts.log4j).toBe(0);
-    expect(extractor.libraryCounts.cryptix).toBe(0);
+    expect(extractor.libraryCounts['struts']).toBe(1);
+    expect(extractor.libraryCounts['commons']).toBe(1);
+    expect(extractor.libraryCounts['log4j']).toBe(0);
+    expect(extractor.libraryCounts['cryptix']).toBe(0);
   });
 
   test('should increment counts correctly for multiple calls', () => {
@@ -716,8 +725,20 @@ describe('countSpecificLibraries', () => {
     extractor.countSpecificLibraries('org.apache.commons.lang.StringUtils');
     extractor.countSpecificLibraries('org.apache.commons.io.FileUtils');
     
-    expect(extractor.libraryCounts.struts).toBe(2);
-    expect(extractor.libraryCounts.commons).toBe(2);
+    expect(extractor.libraryCounts['struts']).toBe(2);
+    expect(extractor.libraryCounts['commons']).toBe(2);
+  });
+
+  test('should support custom libraries list', () => {
+    const extractor = new PackageDependencyExtractor('spring,hibernate,tomcat');
+    extractor.countSpecificLibraries('org.springframework.context.ApplicationContext');
+    extractor.countSpecificLibraries('org.hibernate.Session');
+    
+    expect(extractor.libraryCounts['spring']).toBe(1);
+    expect(extractor.libraryCounts['hibernate']).toBe(1);
+    expect(extractor.libraryCounts['tomcat']).toBe(0);
+    // The default libraries shouldn't be counted
+    expect(extractor.libraryCounts['struts']).toBeUndefined();
   });
 });
 
@@ -738,7 +759,7 @@ test('should count libraries when processing a record', () => {
   };
   
   extractor.processRecord(record);
-  expect(extractor.libraryCounts.struts).toBe(1);
+  expect(extractor.libraryCounts['struts']).toBe(1);
   
   // Process another record with a different library
   const record2 = {
@@ -747,5 +768,16 @@ test('should count libraries when processing a record', () => {
   };
   
   extractor.processRecord(record2);
-  expect(extractor.libraryCounts.commons).toBe(1);
+  expect(extractor.libraryCounts['commons']).toBe(1);
+});
+
+// Add tests for getLibrariesToCount
+test('should return default libraries when not specified', () => {
+  const extractor = new PackageDependencyExtractor();
+  expect(extractor.getLibrariesToCount()).toEqual(['struts', 'commons', 'log4j', 'cryptix']);
+});
+
+test('should return custom libraries when specified', () => {
+  const extractor = new PackageDependencyExtractor('spring,hibernate,tomcat');
+  expect(extractor.getLibrariesToCount()).toEqual(['spring', 'hibernate', 'tomcat']);
 }); 

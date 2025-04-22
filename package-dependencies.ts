@@ -26,10 +26,7 @@ interface PackageInfo {
 
 // Interface for tracking specific library counts
 interface LibraryCounts {
-    struts: number;
-    commons: number;
-    log4j: number;
-    cryptix: number;
+    [key: string]: number;
 }
 
 class PackageDependencyExtractor {
@@ -38,12 +35,20 @@ class PackageDependencyExtractor {
     private artifactMap: Map<string, Set<string>> = new Map();
     private basePackageDependencyMap: Map<string, Set<string>> = new Map();
     // Add property to track library counts
-    private libraryCounts: LibraryCounts = {
-        struts: 0,
-        commons: 0,
-        log4j: 0,
-        cryptix: 0
-    };
+    private libraryCounts: LibraryCounts = {};
+    private librariesToCount: string[] = ['struts', 'commons', 'log4j', 'cryptix']; // Default libraries
+
+    // Constructor that allows setting libraries to count
+    constructor(librariesToCount?: string) {
+        if (librariesToCount) {
+            this.librariesToCount = librariesToCount.split(',').map(lib => lib.trim().toLowerCase());
+        }
+        
+        // Initialize counter for each library
+        this.librariesToCount.forEach(lib => {
+            this.libraryCounts[lib] = 0;
+        });
+    }
 
     async parseJsonlFile(filePath: string): Promise<void> {
         const fileStream = fs.createReadStream(filePath);
@@ -105,19 +110,14 @@ class PackageDependencyExtractor {
     
     // Method to count instances of specific libraries
     private countSpecificLibraries(targetClass: string): void {
-        // Check for each specific library in the targetClass
-        if (targetClass.toLowerCase().includes('struts')) {
-            this.libraryCounts.struts++;
-        }
-        if (targetClass.toLowerCase().includes('commons')) {
-            this.libraryCounts.commons++;
-        }
-        if (targetClass.toLowerCase().includes('log4j')) {
-            this.libraryCounts.log4j++;
-        }
-        if (targetClass.toLowerCase().includes('cryptix')) {
-            this.libraryCounts.cryptix++;
-        }
+        const lcTargetClass = targetClass.toLowerCase();
+        
+        // Check for each library in the target class
+        this.librariesToCount.forEach(library => {
+            if (lcTargetClass.includes(library)) {
+                this.libraryCounts[library]++;
+            }
+        });
     }
 
     private getPackageName(className: string): string {
@@ -226,10 +226,12 @@ class PackageDependencyExtractor {
         markdownContent += 'These counts represent the number of dependencies where the `targetClass` field in the JSONL data contains each specific library name. This helps quantify how many times your application code depends on classes from these libraries, which is useful for identifying vulnerability exposure.\n\n';
         markdownContent += '| Library | Count |\n';
         markdownContent += '|---------|-------|\n';
-        markdownContent += `| Struts | ${this.libraryCounts.struts} |\n`;
-        markdownContent += `| Commons | ${this.libraryCounts.commons} |\n`;
-        markdownContent += `| Log4j | ${this.libraryCounts.log4j} |\n`;
-        markdownContent += `| Cryptix | ${this.libraryCounts.cryptix} |\n\n`;
+        
+        // Display counts for each library dynamically
+        Object.keys(this.libraryCounts).forEach(library => {
+            markdownContent += `| ${library.charAt(0).toUpperCase() + library.slice(1)} | ${this.libraryCounts[library]} |\n`;
+        });
+        markdownContent += '\n';
         
         // List all base packages
         markdownContent += '## Base Packages\n\n';
@@ -326,15 +328,19 @@ class PackageDependencyExtractor {
         
         // Log the library counts to console
         console.log('\nSpecific Library Counts:');
-        console.log(`- Struts: ${this.libraryCounts.struts}`);
-        console.log(`- Commons: ${this.libraryCounts.commons}`);
-        console.log(`- Log4j: ${this.libraryCounts.log4j}`);
-        console.log(`- Cryptix: ${this.libraryCounts.cryptix}`);
+        Object.keys(this.libraryCounts).forEach(library => {
+            console.log(`- ${library.charAt(0).toUpperCase() + library.slice(1)}: ${this.libraryCounts[library]}`);
+        });
     }
     
     // Getter for library counts (useful for testing)
     getLibraryCounts(): LibraryCounts {
         return this.libraryCounts;
+    }
+
+    // Getter for libraries being counted
+    getLibrariesToCount(): string[] {
+        return [...this.librariesToCount];
     }
 }
 
@@ -344,6 +350,7 @@ async function main() {
 
 Options:
   --output, -o <file>  Specify output file path (default: package-dependencies.md)
+  --libraries, -l <libs>  Comma-separated list of libraries to count (default: struts,commons,log4j,cryptix)
   --help, -h           Display this help information
 `;
     
@@ -366,6 +373,7 @@ Options:
     // Parse command line arguments
     let jsonlFilePath = '';
     let outputFilePath = 'package-dependencies.md'; // Default output path
+    let librariesToCount = ''; // Default is undefined, will use defaults in the constructor
     
     for (let i = 0; i < args.length; i++) {
         if (args[i] === '--output' || args[i] === '-o') {
@@ -374,6 +382,15 @@ Options:
                 i++; // Skip the next argument as we've already processed it
             } else {
                 console.error('Error: Missing value for --output parameter');
+                console.error(usage);
+                process.exit(1);
+            }
+        } else if (args[i] === '--libraries' || args[i] === '-l') {
+            if (i + 1 < args.length) {
+                librariesToCount = args[i + 1];
+                i++; // Skip the next argument as we've already processed it
+            } else {
+                console.error('Error: Missing value for --libraries parameter');
                 console.error(usage);
                 process.exit(1);
             }
@@ -411,13 +428,24 @@ Options:
         }
     }
     
-    const extractor = new PackageDependencyExtractor();
+    // Create extractor with libraries to count (if specified)
+    const extractor = new PackageDependencyExtractor(librariesToCount);
     
     console.log(`Parsing dependencies from ${jsonlFilePath}...`);
     await extractor.parseJsonlFile(jsonlFilePath);
     
     console.log(`Generating Markdown output to ${outputFilePath}...`);
     extractor.generateMarkdownOutput(outputFilePath);
+    
+    // Log which libraries were counted
+    console.log(`\nCounted the following libraries: ${extractor.getLibrariesToCount().join(', ')}`);
+    
+    // Log the library counts to console
+    console.log('\nSpecific Library Counts:');
+    const libraryCounts = extractor.getLibraryCounts();
+    Object.keys(libraryCounts).forEach(library => {
+        console.log(`- ${library.charAt(0).toUpperCase() + library.slice(1)}: ${libraryCounts[library]}`);
+    });
 }
 
 main().catch(error => console.error('Error:', error)); 
